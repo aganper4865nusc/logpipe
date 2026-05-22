@@ -2,40 +2,29 @@ package sink
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"strings"
 )
 
-// Sink represents a destination for log lines.
-type Sink interface {
-	Write(line string) error
-	Close() error
-}
+// StdoutSink writes log lines to standard output.
+type StdoutSink struct{}
 
-// StdoutSink writes log lines to stdout.
-type StdoutSink struct {
-	w io.Writer
-}
-
-// NewStdoutSink creates a new StdoutSink.
+// NewStdoutSink returns a new StdoutSink.
 func NewStdoutSink() *StdoutSink {
-	return &StdoutSink{w: os.Stdout}
+	return &StdoutSink{}
 }
 
+// Write prints line followed by a newline to stdout.
 func (s *StdoutSink) Write(line string) error {
-	_, err := fmt.Fprintln(s.w, line)
+	_, err := fmt.Fprintln(os.Stdout, line)
 	return err
 }
 
-func (s *StdoutSink) Close() error { return nil }
-
-// FileSink writes log lines to a file.
+// FileSink writes log lines to a file on disk.
 type FileSink struct {
 	f *os.File
 }
 
-// NewFileSink opens or creates a file sink at the given path.
+// NewFileSink opens (or creates) the file at path for appending.
 func NewFileSink(path string) (*FileSink, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -44,22 +33,26 @@ func NewFileSink(path string) (*FileSink, error) {
 	return &FileSink{f: f}, nil
 }
 
+// Write appends line followed by a newline to the file.
 func (s *FileSink) Write(line string) error {
 	_, err := fmt.Fprintln(s.f, line)
 	return err
 }
 
-func (s *FileSink) Close() error { return s.f.Close() }
+// Close releases the underlying file handle.
+func (s *FileSink) Close() error {
+	return s.f.Close()
+}
 
-// New creates a Sink based on the type string and target.
-// Supported types: "stdout", "file".
-func New(sinkType, target string) (Sink, error) {
-	switch strings.ToLower(sinkType) {
+// New is a factory that returns a Sink based on the type string.
+// Supported types: "stdout", "file" (requires target field).
+func New(sinkType, target string) (interface{ Write(string) error }, error) {
+	switch sinkType {
 	case "stdout":
 		return NewStdoutSink(), nil
 	case "file":
 		if target == "" {
-			return nil, fmt.Errorf("sink: file sink requires a non-empty target path")
+			return nil, fmt.Errorf("sink: file sink requires a target path")
 		}
 		return NewFileSink(target)
 	default:
