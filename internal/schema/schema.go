@@ -58,3 +58,14 @@ func (v *Validator) Validate(line string) error {
 func PassThrough() *Validator {
 	return &Validator{}
 }
+
+// RequiredFields returns a copy of the field names this Validator enforces.
+// The returned slice is safe to modify without affecting the Validator.
+func (v *Validator) RequiredFields() []string {
+	if len(v.required) == 0 {
+		return nil
+	}
+	out := make([]string, len(v.required))
+	copy(out, v.required)
+	return out
+}
